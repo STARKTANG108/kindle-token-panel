@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=600, initial-scale=1.0, user-scalable=yes">
+  <title>Kindle E-Ink Monitor (Jumbo Desk Edition)</title>
+  <style>
+    /* Reset & Base E-Ink Styles (Zero CDN Dependencies) */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      background-color: #FFFFFF;
+      color: #000000;
+      font-family: "PingFang SC", "Noto Sans CJK SC", "Heiti SC", "Droid Sans Fallback", Helvetica, Arial, sans-serif;
+      font-size: 28px; /* Jumbo base size (2x normal), auto-compensated for viewport */
+      font-weight: 900;
+      -webkit-text-stroke: 0.3px #000000;
+      line-height: 1.32;
+      padding: 8px;
+    }
+
+    /* High-contrast solid borders */
+    .bordered {
+      border: 3px solid #000000;
+      margin-bottom: 12px;
+      background: #FFFFFF;
+    }
+
+    /* Jumbo Touch Buttons */
+    .btn {
+      display: inline-block;
+      background: #FFFFFF;
+      color: #000000;
+      border: 3px solid #000000;
+      padding: 6px 10px;
+      font-size: 0.82em;
+      font-weight: 900;
+      cursor: pointer;
+      text-decoration: none;
+      user-select: none;
+      -webkit-user-select: none;
+      margin-right: 4px;
+      margin-bottom: 4px;
+    }
+    .btn:active {
+      background: #000000;
+      color: #FFFFFF;
+      -webkit-text-stroke: 0px transparent;
+    }
+
+    /* Inverted badge */
+    .badge {
+      display: inline-block;
+      background: #000000;
+      color: #FFFFFF;
+      -webkit-text-stroke: 0px transparent;
+      padding: 3px 8px;
+      font-size: 0.8em;
+      font-weight: 900;
+      border: 2px solid #000000;
+    }
+    .badge-outline {
+      display: inline-block;
+      background: #FFFFFF;
+      color: #000000;
+      padding: 2px 7px;
+      font-size: 0.8em;
+      font-weight: 900;
+      border: 2px solid #000000;
+    }
+
+    /* Header bar */
+    .header-bar {
+      display: table;
+      width: 100%;
+      border-bottom: 3px solid #000000;
+      padding-bottom: 6px;
+      margin-bottom: 10px;
+    }
+    .header-left {
+      display: table-cell;
+      vertical-align: middle;
+      text-align: left;
+    }
+    .header-right {
+      display: table-cell;
+      vertical-align: middle;
+      text-align: right;
+    }
+    .main-title {
+      font-size: 1.05em;
+      font-weight: 900;
+      letter-spacing: 0.5px;
+    }
+
+    /* Control Toolbar */
+    .toolbar {
+      display: table;
+      width: 100%;
+      margin-bottom: 10px;
+    }
+    .toolbar-left {
+      display: table-cell;
+      vertical-align: middle;
+      text-align: left;
+    }
+    .toolbar-right {
+      display: table-cell;
+      vertical-align: middle;
+      text-align: right;
+    }
+
+    /* Grid layout for portrait & landscape */
+    .col-container {
+      width: 100%;
+    }
+    .col-container:after {
+      content: "";
+      display: table;
+      clear: both;
+    }
+    .col-main, .col-side {
+      width: 100%;
+      float: none;
+    }
+
+    /* Landscape 2-column layout */
+    body.layout-landscape .col-main {
+      width: 49%;
+      float: left;
+      margin-right: 2%;
+    }
+    body.layout-landscape .col-side {
+      width: 49%;
+      float: left;
+    }
+
+    /* KPI Block (Jumbo Digits) */
+    .kpi-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: center;
+    }
+    .kpi-table td {
+      padding: 10px 6px;
+      border-right: 3px solid #000000;
+    }
+    .kpi-table td:last-child {
+      border-right: none;
+    }
+    .kpi-val {
+      font-size: 1.9em;
+      font-weight: 900;
+      font-family: monospace;
+      line-height: 1.08;
+    }
+    .kpi-lbl {
+      font-size: 0.75em;
+      font-weight: 900;
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+
+    /* Sub-KPI Row (2 rows x 2 cols big layout) */
+    .subkpi-table {
+      width: 100%;
+      border-top: 3px solid #000000;
+      border-collapse: collapse;
+      font-size: 0.82em;
+    }
+    .subkpi-table td {
+      padding: 6px 10px;
+      border: 1px solid #000000;
+      width: 50%;
+    }
+    .stripe-indicator {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid #000000;
+      background: repeating-linear-gradient(45deg, #000, #000 2px, #fff 2px, #fff 5px);
+      vertical-align: middle;
+      margin-right: 4px;
+    }
+
+    /* Inflight Tasks Card List */
+    .task-header {
+      display: table;
+      width: 100%;
+      background: #000000;
+      color: #FFFFFF;
+      -webkit-text-stroke: 0px transparent;
+      padding: 6px 10px;
+      font-weight: 900;
+      font-size: 0.9em;
+    }
+    .task-header-title {
+      display: table-cell;
+      text-align: left;
+      vertical-align: middle;
+    }
+    .task-header-paging {
+      display: table-cell;
+      text-align: right;
+      vertical-align: middle;
+    }
+
+    .task-card {
+      border-bottom: 3px solid #000000;
+      padding: 10px 10px;
+      background: #FFFFFF;
+    }
+    .task-card:last-child {
+      border-bottom: none;
+    }
+
+    /* Inverted card for APPROVAL status */
+    .task-card.is-approval {
+      background: #000000 !important;
+      color: #FFFFFF !important;
+      -webkit-text-stroke: 0px transparent !important;
+    }
+    .task-card.is-approval .badge-outline {
+      background: #000000 !important;
+      color: #FFFFFF !important;
+      border-color: #FFFFFF !important;
+    }
+    .task-card.is-approval td {
+      border-color: #FFFFFF !important;
+    }
+    .task-card.is-approval td.filled {
+      background: #FFFFFF !important;
+    }
+    .task-card.is-approval td.empty {
+      background: #000000 !important;
+    }
+
+    .task-top {
+      display: table;
+      width: 100%;
+      margin-bottom: 6px;
+    }
+    .task-top-left {
+      display: table-cell;
+      text-align: left;
+      vertical-align: middle;
+    }
+    .task-top-right {
+      display: table-cell;
+      text-align: right;
+      vertical-align: middle;
+      font-size: 0.85em;
+      font-weight: 900;
+      font-family: monospace;
+    }
+    .task-title {
+      font-weight: 900;
+      font-size: 0.95em;
+      margin-left: 6px;
+    }
+
+    /* Full-width 12-block progress table */
+    .prog-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 3px 0;
+      table-layout: fixed;
+      margin: 8px 0;
+    }
+    .prog-cell {
+      height: 24px;
+      border: 2px solid #000000;
+      padding: 0;
+    }
+    .prog-cell.filled {
+      background: #000000;
+    }
+    .prog-cell.empty {
+      background: #FFFFFF;
+    }
+
+    .prog-meta {
+      display: table;
+      width: 100%;
+      margin-bottom: 4px;
+    }
+    .prog-meta-left {
+      display: table-cell;
+      text-align: left;
+      font-size: 0.88em;
+      font-weight: 900;
+      font-family: monospace;
+    }
+    .prog-meta-right {
+      display: table-cell;
+      text-align: right;
+      font-size: 0.88em;
+      font-weight: 900;
+      font-family: monospace;
+    }
+
+    .task-detail {
+      font-size: 0.8em;
+      font-weight: 800;
+      color: inherit;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Top Models Table (3-column Big Layout) */
+    .models-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88em;
+    }
+    .models-table th, .models-table td {
+      padding: 6px 8px;
+      border-bottom: 2px solid #000000;
+      text-align: right;
+      font-weight: 800;
+    }
+    .models-table th:first-child, .models-table td:first-child {
+      text-align: left;
+      width: 50%;
+    }
+    .models-table th {
+      background: #EAEAEA;
+      font-weight: 900;
+      border-bottom: 3px solid #000000;
+      font-size: 0.85em;
+    }
+    .model-bar-wrap {
+      width: 100%;
+      background: #EAEAEA;
+      height: 8px;
+      margin-top: 4px;
+    }
+    .model-bar-fill {
+      background: #000000;
+      height: 8px;
+    }
+
+    /* Hourly sparkline bars */
+    .sparkline-box {
+      padding: 8px 10px;
+    }
+    .spark-bars {
+      display: table;
+      width: 100%;
+      height: 52px;
+      border-bottom: 2px solid #000000;
+    }
+    .spark-col {
+      display: table-cell;
+      vertical-align: bottom;
+      text-align: center;
+      padding: 0 2px;
+    }
+    .spark-fill {
+      background: #000000;
+      width: 100%;
+      min-height: 3px;
+    }
+    .spark-labels {
+      display: table;
+      width: 100%;
+      margin-top: 4px;
+    }
+    .spark-lbl {
+      display: table-cell;
+      text-align: center;
+      font-size: 0.75em;
+      font-weight: 900;
+      font-family: monospace;
+    }
+
+    /* Footer status */
+    .footer {
+      border-top: 2px solid #000000;
+      padding-top: 8px;
+      margin-top: 10px;
+      font-size: 0.75em;
+      font-weight: 800;
+      display: table;
+      width: 100%;
+    }
+    .footer-left {
+      display: table-cell;
+      text-align: left;
+    }
+    .footer-right {
+      display: table-cell;
+      text-align: right;
+    }
+
+    /* GC16 Full Screen Flash Overlay */
+    #flash-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 999999;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body class="layout-portrait">
+
+  <!-- Full Screen Flash Mask for Ghosting Elimination -->
+  <div id="flash-overlay"></div>
+
+  <!-- Header Section -->
+  <div class="header-bar">
+    <div class="header-left">
+      <span class="main-title">KINDLE MONITOR</span>
+      <span id="conn-status" class="badge">LIVE</span>
+    </div>
+    <div class="header-right">
+      <span id="clock" style="font-size:1.25em; font-weight:900; font-family:monospace;">00:00:00</span>
+    </div>
+  </div>
+
+  <!-- Toolbar Controls -->
+  <div class="toolbar">
+    <div class="toolbar-left">
+      <button type="button" class="btn" onclick="toggleRange()">
+        <span id="range-btn-label">今日/7日</span>
+      </button>
+      <button type="button" class="btn" onclick="adjustFontSize(-4)">字-</button>
+      <button type="button" class="btn" onclick="adjustFontSize(4)">字+</button>
+      <button type="button" class="btn" onclick="toggleOrientation()">
+        <span id="orient-btn-label">横/竖</span>
+      </button>
+    </div>
+    <div class="toolbar-right">
+      <button type="button" class="btn" onclick="flashScreenManual()">消残影</button>
+    </div>
+  </div>
+
+  <!-- Main Container -->
+  <div class="col-container">
+    
+    <!-- Column Main -->
+    <div class="col-main">
+      
+      <!-- Token & Cost Summary Box (Jumbo Display) -->
+      <div class="bordered">
+        <table class="kpi-table">
+          <tr>
+            <td style="width:50%;">
+              <div class="kpi-val" id="kpi-tokens">0</div>
+              <div class="kpi-lbl" id="kpi-tokens-lbl">今日 TOKENS</div>
+            </td>
+            <td style="width:50%;">
+              <div class="kpi-val" id="kpi-cost">$0.00</div>
+              <div class="kpi-lbl" id="kpi-cost-lbl">预估费用</div>
+            </td>
+          </tr>
+        </table>
+        <!-- 2x2 Big Info Grid -->
+        <table class="subkpi-table">
+          <tr>
+            <td>
+              <span class="stripe-indicator"></span><strong>In:</strong>
+              <span id="sub-input" style="font-family:monospace;">0</span>
+            </td>
+            <td>
+              <strong>Out:</strong>
+              <span id="sub-output" style="font-family:monospace;">0</span>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <strong>Cache:</strong>
+              <span id="sub-cache" style="font-family:monospace;">0</span>
+            </td>
+            <td>
+              <strong>TPM:</strong>
+              <span id="tpm-val" style="font-family:monospace;">0</span>
+            </td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- Inflight Tasks Section (Visual Priority #1, placed directly below KPI) -->
+      <div class="bordered">
+        <div class="task-header">
+          <div class="task-header-title">
+            在途任务池 (<span id="task-count">0</span>)
+          </div>
+          <div class="task-header-paging">
+            <button type="button" class="btn" style="padding:2px 8px; font-size:0.8em; margin:0;" onclick="prevPage()">◀ 上页</button>
+            <span id="page-indicator" style="margin:0 4px; font-family:monospace;">1/1</span>
+            <button type="button" class="btn" style="padding:2px 8px; font-size:0.8em; margin:0;" onclick="nextPage()">下页 ▶</button>
+          </div>
+        </div>
+
+        <div id="tasks-container">
+          <div style="padding:16px; text-align:center; font-weight:900;">正在采集在途任务...</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Column Side (Stacks below in portrait, right column in landscape) -->
+    <div class="col-side" id="col-side-placeholder">
+
+      <!-- Top Models Table (3 Large Columns) -->
+      <div class="bordered">
+        <div style="padding:6px 10px; border-bottom:2px solid #000; font-size:0.9em; font-weight:900;">
+          模型消耗榜 TOP 5 (MODELS)
+        </div>
+        <table class="models-table">
+          <thead>
+            <tr>
+              <th>模型名称</th>
+              <th>Tokens</th>
+              <th>费用</th>
+            </tr>
+          </thead>
+          <tbody id="models-tbody">
+            <tr><td colspan="3" style="text-align:center; padding:10px;">加载中...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 12 Hours Activity Trend -->
+      <div class="bordered">
+        <div style="padding:6px 10px; border-bottom:2px solid #000; font-size:0.9em; font-weight:900;">
+          近 12 小时消耗趋势 (HOURLY)
+        </div>
+        <div class="sparkline-box">
+          <div class="spark-bars" id="spark-bars">
+            <!-- Spark columns injected here -->
+          </div>
+          <div class="spark-labels" id="spark-labels">
+            <!-- Spark labels injected here -->
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- Footer Information -->
+  <div class="footer">
+    <div class="footer-left">
+      <span id="du-counter">DU: 0</span> ·
+      <span id="hash-tag">HASH: ------</span>
+    </div>
+    <div class="footer-right">
+      <span id="font-scale-tag">FONT: 24px</span> ·
+      <span id="uptime-text">UP: 0m</span>
+    </div>
+  </div>
+
+  <!-- ES5 Strict Javascript -->
+  <script>
+    var currentRange = "today";
+    var isLandscape = false;
+    var currentPage = 1;
+    var pageSize = 3; /* Show 3 jumbo cards per page */
+    var lastHash = "";
+    var currentData = null;
+    var currentUiVersion = "";
+    var duCount = 0;
+    var bootTime = (new Date()).getTime();
+
+    // Load saved orientation from localStorage first
+    try {
+      var savedOrient = localStorage.getItem("kpanel_orient");
+      if (savedOrient === "landscape") {
+        isLandscape = true;
+        document.body.className = "layout-landscape";
+        document.getElementById("orient-btn-label").innerHTML = "横屏双栏";
+      }
+    } catch (e) {}
+
+    // Default Jumbo font size scale (28px on 600px viewport, auto-scaled if WebView uses wide viewport)
+    var initVw = window.innerWidth || document.documentElement.clientWidth || 600;
+    var vwRatio = (initVw > 640 && !isLandscape) ? (initVw / 600.0) : 1.0;
+    var fontScalePx = Math.round(28 * vwRatio);
+    if (fontScalePx > 72) fontScalePx = 72;
+    try {
+      var savedFont = localStorage.getItem("kpanel_fontsize_v2");
+      if (savedFont) {
+        var pf = parseInt(savedFont, 10);
+        if (!isNaN(pf) && pf >= 16 && pf <= 72) {
+          fontScalePx = pf;
+        }
+      }
+    } catch (e) {}
+
+    function applyFontSize(persist) {
+      document.body.style.fontSize = fontScalePx + "px";
+      var tag = document.getElementById("font-scale-tag");
+      if (tag) tag.innerHTML = "FONT: " + fontScalePx + "px";
+      if (persist) {
+        try {
+          localStorage.setItem("kpanel_fontsize_v2", fontScalePx.toString());
+        } catch (e) {}
+      }
+    }
+    applyFontSize(false);
+
+    function adjustFontSize(delta) {
+      fontScalePx += delta;
+      if (fontScalePx < 16) fontScalePx = 16;
+      if (fontScalePx > 72) fontScalePx = 72;
+      applyFontSize(true);
+    }
+
+    // Clean friendly model name
+    function cleanModelName(mId) {
+      if (!mId) return "unknown";
+      var s = mId;
+      if (s === "gemini-3.8-flash-tiered") return "gemini-3.8-flash";
+      if (s === "claude-opus-5-5-xhigh") return "claude-opus-5.5 ⚡";
+      if (s === "claude-opus-5-5-medium") return "claude-opus-5.5";
+      if (s === "gemini-4-argon-c") return "gemini-4-argon";
+      if (s === "swe-2-max") return "swe-2-max";
+      if (s === "compactor") return "compactor";
+      // Trim -tiered, -preview if present
+      s = s.replace("-tiered", "").replace("-preview", "");
+      if (s.length > 18) {
+        s = s.substring(0, 17) + "…";
+      }
+      return s;
+    }
+
+    // Number formatting helper
+    function formatNumber(num) {
+      if (num === null || num === undefined) return "0";
+      var n = parseInt(num, 10);
+      if (isNaN(n)) return "0";
+      if (n >= 1000000000) {
+        return (n / 1000000000).toFixed(2) + "B";
+      }
+      if (n >= 1000000) {
+        return (n / 1000000).toFixed(2) + "M";
+      }
+      if (n >= 1000) {
+        return (n / 1000).toFixed(1) + "K";
+      }
+      return n.toString();
+    }
+
+    function formatCurrency(val) {
+      var n = parseFloat(val);
+      if (isNaN(n)) return "$0.00";
+      return "$" + n.toFixed(2);
+    }
+
+    function toggleRange() {
+      if (currentRange === "today") {
+        currentRange = "week";
+        document.getElementById("range-btn-label").innerHTML = "近7日";
+        document.getElementById("kpi-tokens-lbl").innerHTML = "近7日 TOKENS";
+        document.getElementById("kpi-cost-lbl").innerHTML = "近7日 预估费用";
+      } else {
+        currentRange = "today";
+        document.getElementById("range-btn-label").innerHTML = "今日";
+        document.getElementById("kpi-tokens-lbl").innerHTML = "今日 TOKENS";
+        document.getElementById("kpi-cost-lbl").innerHTML = "今日 预估费用";
+      }
+      if (currentData) {
+        renderSummary(currentData);
+      }
+    }
+
+    function toggleOrientation() {
+      isLandscape = !isLandscape;
+      if (isLandscape) {
+        document.body.className = "layout-landscape";
+        document.getElementById("orient-btn-label").innerHTML = "横屏双栏";
+      } else {
+        document.body.className = "layout-portrait";
+        document.getElementById("orient-btn-label").innerHTML = "竖屏排版";
+      }
+      try {
+        localStorage.setItem("kpanel_orient", isLandscape ? "landscape" : "portrait");
+      } catch (e) {}
+    }
+
+    function flashScreen() {
+      var el = document.getElementById("flash-overlay");
+      if (!el) return;
+      el.style.display = "block";
+      el.style.backgroundColor = "#000000";
+      setTimeout(function() {
+        el.style.backgroundColor = "#FFFFFF";
+        setTimeout(function() {
+          el.style.display = "none";
+        }, 150);
+      }, 150);
+    }
+
+    function flashScreenManual() {
+      flashScreen();
+      duCount = 0;
+      document.getElementById("du-counter").innerHTML = "DU: 0";
+    }
+
+    function prevPage() {
+      if (currentPage > 1) {
+        currentPage--;
+        renderTasks();
+      }
+    }
+
+    function nextPage() {
+      if (!currentData || !currentData.inflight_tasks) return;
+      var totalPages = Math.ceil(currentData.inflight_tasks.length / pageSize) || 1;
+      if (currentPage < totalPages) {
+        currentPage++;
+        renderTasks();
+      }
+    }
+
+    function updateClock() {
+      var d = new Date();
+      var hh = d.getHours();
+      var mm = d.getMinutes();
+      var ss = d.getSeconds();
+      var str = (hh < 10 ? "0" + hh : hh) + ":" +
+                (mm < 10 ? "0" + mm : mm) + ":" +
+                (ss < 10 ? "0" + ss : ss);
+      document.getElementById("clock").innerHTML = str;
+
+      var upMin = Math.floor((d.getTime() - bootTime) / 60000);
+      document.getElementById("uptime-text").innerHTML = "UP: " + upMin + "m";
+    }
+
+    function renderSummary(data) {
+      var sum = (currentRange === "week") ? data.summary.week : data.summary.today;
+      document.getElementById("kpi-tokens").innerHTML = formatNumber(sum.tokens);
+      document.getElementById("kpi-cost").innerHTML = formatCurrency(sum.cost);
+
+      document.getElementById("sub-input").innerHTML = formatNumber(sum.inputTokens);
+      document.getElementById("sub-output").innerHTML = formatNumber(sum.outputTokens);
+      document.getElementById("sub-cache").innerHTML = formatNumber(sum.cacheReadTokens);
+      document.getElementById("tpm-val").innerHTML = formatNumber(data.summary.tpm || 0);
+
+      document.getElementById("hash-tag").innerHTML = "HASH: " + data.state_hash;
+      document.getElementById("du-counter").innerHTML = "DU: " + duCount;
+    }
+
+    function renderSparkline(trend) {
+      if (!trend || trend.length === 0) return;
+      var maxTok = 1;
+      for (var i = 0; i < trend.length; i++) {
+        if (trend[i].tokens > maxTok) {
+          maxTok = trend[i].tokens;
+        }
+      }
+
+      var barsHtml = "";
+      var lblsHtml = "";
+      for (var j = 0; j < trend.length; j++) {
+        var item = trend[j];
+        var pct = Math.max(6, Math.round((item.tokens / maxTok) * 100));
+        barsHtml += '<div class="spark-col"><div class="spark-fill" style="height:' + pct + '%;"></div></div>';
+        
+        // Show hour label on even indices only to avoid cramped text
+        var lbl = (j % 2 === 0) ? item.hour.substring(0, 2) : "";
+        lblsHtml += '<div class="spark-lbl">' + lbl + '</div>';
+      }
+      document.getElementById("spark-bars").innerHTML = barsHtml;
+      document.getElementById("spark-labels").innerHTML = lblsHtml;
+    }
+
+    function renderModels(models) {
+      if (!models || models.length === 0) {
+        document.getElementById("models-tbody").innerHTML = '<tr><td colspan="3" style="text-align:center;">暂无模型数据</td></tr>';
+        return;
+      }
+      // Find max tokens for relative proportion bar
+      var maxTokens = 1;
+      for (var k = 0; k < models.length; k++) {
+        if (models[k].tokens > maxTokens) maxTokens = models[k].tokens;
+      }
+
+      var html = "";
+      var topCount = Math.min(models.length, 5);
+      for (var i = 0; i < topCount; i++) {
+        var m = models[i];
+        var displayName = cleanModelName(m.modelId);
+        var barPct = Math.max(5, Math.round((m.tokens / maxTokens) * 100));
+
+        html += '<tr>' +
+          '<td>' +
+            '<div><strong>' + displayName + '</strong></div>' +
+            '<div class="model-bar-wrap"><div class="model-bar-fill" style="width:' + barPct + '%;"></div></div>' +
+          '</td>' +
+          '<td style="font-family:monospace; font-size:0.95em;">' + formatNumber(m.tokens) + '</td>' +
+          '<td style="font-family:monospace; font-size:0.95em;">$' + (m.cost ? m.cost.toFixed(2) : "0.00") + '</td>' +
+        '</tr>';
+      }
+      document.getElementById("models-tbody").innerHTML = html;
+    }
+
+    function renderTasks() {
+      if (!currentData || !currentData.inflight_tasks) return;
+      var tasks = currentData.inflight_tasks;
+      document.getElementById("task-count").innerHTML = tasks.length.toString();
+
+      var totalPages = Math.ceil(tasks.length / pageSize) || 1;
+      if (currentPage > totalPages) currentPage = totalPages;
+      if (currentPage < 1) currentPage = 1;
+      document.getElementById("page-indicator").innerHTML = currentPage + "/" + totalPages;
+
+      if (tasks.length === 0) {
+        document.getElementById("tasks-container").innerHTML =
+          '<div style="padding:20px; text-align:center; font-weight:900;">当前无活跃任务 (All Systems Idle)</div>';
+        return;
+      }
+
+      var startIdx = (currentPage - 1) * pageSize;
+      var endIdx = Math.min(startIdx + pageSize, tasks.length);
+      var html = "";
+
+      for (var i = startIdx; i < endIdx; i++) {
+        var t = tasks[i];
+        var isApproval = (t.status === "APPROVAL");
+        var cardClass = "task-card" + (isApproval ? " is-approval" : "");
+
+        // 12-block full-width progress table
+        var filledCount = t.blocks || 0;
+        var blocksRow = "";
+        for (var b = 0; b < 12; b++) {
+          var cellClass = (b < filledCount) ? "prog-cell filled" : "prog-cell empty";
+          blocksRow += '<td class="' + cellClass + '"></td>';
+        }
+        var tableHtml = '<table class="prog-table"><tr>' + blocksRow + '</tr></table>';
+
+        var badgeClass = isApproval ? "badge" : (t.status === "RUNNING" ? "badge" : "badge-outline");
+        var badgeText = t.source || "Task";
+        if (isApproval) {
+          badgeText = "⚠️ 待审批";
+        }
+
+        html += '<div class="' + cardClass + '">' +
+          '<div class="task-top">' +
+            '<div class="task-top-left">' +
+              '<span class="' + badgeClass + '">' + badgeText + '</span>' +
+              '<span class="task-title">' + t.title + '</span>' +
+            '</div>' +
+            '<div class="task-top-right">' + (t.elapsed || "00:00") + '</div>' +
+          '</div>' +
+          tableHtml +
+          '<div class="prog-meta">' +
+            '<div class="prog-meta-left">' + (t.step_text || "") + '</div>' +
+            '<div class="prog-meta-right">' + (t.pct || 0) + '%</div>' +
+          '</div>' +
+          '<div class="task-detail">' + (t.detail || "") + '</div>' +
+        '</div>';
+      }
+
+      document.getElementById("tasks-container").innerHTML = html;
+    }
+
+    function pollServerState() {
+      var xhr = new XMLHttpRequest();
+      var vwNow = window.innerWidth || document.documentElement.clientWidth || 0;
+      var url = "/api/state?hash=" + encodeURIComponent(lastHash) + "&vw=" + vwNow + "&fs=" + fontScalePx + "&_t=" + (new Date()).getTime();
+
+      xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4) {
+          if (xhr.status === 200) {
+            try {
+              var data = JSON.parse(xhr.responseText);
+
+              // Auto Hot Reload: if static/index.html was updated on server, trigger immediate reload
+              if (currentUiVersion && data.ui_version && data.ui_version !== currentUiVersion) {
+                window.location.reload(true);
+                return;
+              }
+              currentUiVersion = data.ui_version || "";
+
+              currentData = data;
+              lastHash = data.state_hash;
+
+              document.getElementById("conn-status").className = "badge";
+              document.getElementById("conn-status").innerHTML = "LIVE";
+
+              renderSummary(data);
+              renderSparkline(data.summary.trend);
+              renderModels(data.models);
+              renderTasks();
+
+              duCount++;
+              if (duCount >= 20) {
+                flashScreen();
+                duCount = 0;
+              }
+            } catch (err) {}
+          } else if (xhr.status === 304) {
+            // Unchanged: zero DOM repaints on Kindle!
+            document.getElementById("conn-status").className = "badge-outline";
+            document.getElementById("conn-status").innerHTML = "SYNC";
+          } else {
+            document.getElementById("conn-status").className = "badge-outline";
+            document.getElementById("conn-status").innerHTML = "ERR " + xhr.status;
+          }
+        }
+      };
+
+      xhr.open("GET", url, true);
+      xhr.send(null);
+    }
+
+    // Initialize clock and periodic tasks
+    updateClock();
+    setInterval(updateClock, 1000);
+
+    // Initial poll and update every 4 seconds
+    pollServerState();
+    setInterval(pollServerState, 4000);
+
+    // Anti-memory leak: full reload after 2 hours (7,200,000 ms)
+    setInterval(function() {
+      var elapsed = (new Date()).getTime() - bootTime;
+      if (elapsed >= 7200000) {
+        window.location.reload(true);
+      }
+    }, 15000);
+  </script>
+</body>
+</html>

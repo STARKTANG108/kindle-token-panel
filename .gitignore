@@ -1,0 +1,17 @@
+# E-Books & Generated Artifacts
+*.mobi
+*.pdf
+
+# Runtime Data & State
+custom_tasks.json
+*.log
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# System & Environment
+.DS_Store
+.env
+.env.*

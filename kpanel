@@ -1,0 +1,236 @@
+#!/usr/bin/env python3
+"""
+Kindle Panel CLI Utility (kpanel)
+Command-line task pusher and real-time dashboard status viewer.
+Zero third-party dependencies - Pure Python 3 standard library.
+"""
+
+import sys
+import os
+import json
+import argparse
+import urllib.request
+import urllib.error
+import urllib.parse
+from datetime import datetime
+
+DEFAULT_PORT = os.environ.get("KPANEL_PORT", "8765")
+DEFAULT_BASE_URL = f"http://127.0.0.1:{DEFAULT_PORT}"
+
+
+def make_request(url, method="GET", data=None, timeout=3.0):
+    """Execute HTTP request using urllib."""
+    req = urllib.request.Request(url, method=method)
+    req.add_header("User-Agent", "kpanel-cli/1.0")
+    if data is not None:
+        body = json.dumps(data).encode("utf-8")
+        req.add_header("Content-Type", "application/json; charset=utf-8")
+        req.data = body
+
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            content = resp.read().decode("utf-8")
+            if not content:
+                return resp.status, None
+            return resp.status, json.loads(content)
+    except urllib.error.HTTPError as e:
+        err_content = e.read().decode("utf-8") if e.fp else ""
+        try:
+            return e.code, json.loads(err_content)
+        except Exception:
+            return e.code, {"error": err_content or str(e)}
+    except urllib.error.URLError as e:
+        sys.stderr.write(f"\033[31m[ERROR]\033[0m Could not connect to kindle-panel server at {url}\n")
+        sys.stderr.write(f"        Ensure server.py is running! (Details: {e.reason})\n")
+        sys.exit(1)
+    except Exception as e:
+        sys.stderr.write(f"\033[31m[ERROR]\033[0m Request failed: {e}\n")
+        sys.exit(1)
+
+
+def cmd_push(args):
+    """Handle `kpanel push` command."""
+    title = args.title.strip()
+    status = "APPROVAL" if args.approval else "RUNNING"
+    source = args.source.strip()
+    detail = args.detail.strip()
+
+    payload = {
+        "title": title,
+        "source": source,
+        "status": status,
+        "detail": detail,
+        "ttl": args.ttl
+    }
+
+    if args.step is not None:
+        payload["step"] = args.step
+    if args.total is not None:
+        payload["total"] = args.total
+    if args.pct is not None:
+        payload["pct"] = args.pct
+
+    url = f"{args.url.rstrip('/')}/api/task"
+    status_code, res = make_request(url, method="POST", data=payload)
+
+    if status_code == 200 and res and res.get("success"):
+        task = res.get("task", {})
+        blocks = task.get("blocks", 0)
+        bar = "■" * blocks + "□" * (12 - blocks)
+        step_txt = task.get("step_text", "")
+        pct_val = task.get("pct", 0)
+
+        alert_tag = "\033[41;37m WAITING APPROVAL \033[0m" if status == "APPROVAL" else "\033[32mRUNNING\033[0m"
+        print(f"\n\033[1m[kpanel] Task successfully updated on Kindle Panel:\033[0m")
+        print(f"  • Source : \033[36m[{source}]\033[0m")
+        print(f"  • Title  : \033[1m{title}\033[0m ({alert_tag})")
+        print(f"  • Bar    : [{bar}] {pct_val}% ({step_txt})")
+        if detail:
+            print(f"  • Detail : {detail}")
+        print(f"  • TTL    : {args.ttl}s\n")
+    else:
+        sys.stderr.write(f"\033[31m[ERROR]\033[0m Server returned status {status_code}: {res}\n")
+        sys.exit(1)
+
+
+def cmd_done(args):
+    """Handle `kpanel done` command."""
+    title = args.title.strip()
+    url = f"{args.url.rstrip('/')}/api/task"
+    payload = {
+        "title": title,
+        "status": "DONE"
+    }
+    status_code, res = make_request(url, method="POST", data=payload)
+
+    if status_code == 200:
+        print(f"\n\033[1;32m[kpanel] Task '{title}' marked as DONE / removed from panel.\033[0m\n")
+    else:
+        sys.stderr.write(f"\033[31m[ERROR]\033[0m Failed marking task done: {res}\n")
+        sys.exit(1)
+
+
+def cmd_status(args):
+    """Handle `kpanel status` command."""
+    url = f"{args.url.rstrip('/')}/api/state"
+    status_code, data = make_request(url, method="GET")
+
+    if status_code != 200 or not data:
+        sys.stderr.write(f"\033[31m[ERROR]\033[0m Could not retrieve state (HTTP {status_code})\n")
+        sys.exit(1)
+
+    sum_today = data.get("summary", {}).get("today", {})
+    sum_week = data.get("summary", {}).get("week", {})
+    tpm = data.get("summary", {}).get("tpm", 0)
+    models = data.get("models", [])
+    tasks = data.get("inflight_tasks", [])
+    state_hash = data.get("state_hash", "------")
+
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    print(f"\n" + "=" * 64)
+    print(f"  \033[1mKINDLE MONITOR REAL-TIME DASHBOARD STATUS\033[0m")
+    print(f"  Local Time: {now_str}  |  State Hash: {state_hash}")
+    print(f"=" * 64)
+
+    # 1. Summary
+    t_tok = sum_today.get("tokens", 0)
+    t_cost = sum_today.get("cost", 0.0)
+    t_inp = sum_today.get("inputTokens", 0)
+    t_out = sum_today.get("outputTokens", 0)
+    t_cache = sum_today.get("cacheReadTokens", 0)
+    t_msgs = sum_today.get("messages", 0)
+
+    w_tok = sum_week.get("tokens", 0)
+    w_cost = sum_week.get("cost", 0.0)
+
+    print(f"\n\033[1;33m[TOKEN & COST SUMMARY]\033[0m")
+    print(f"  • Today Tokens   : \033[1m{t_tok:,}\033[0m ({t_tok/1e6:.2f}M)  |  Cost: \033[1;32m${t_cost:.2f}\033[0m")
+    print(f"  • Breakdown      : In: {t_inp:,} | Out: {t_out:,} | Cache: {t_cache:,} | Msgs: {t_msgs}")
+    print(f"  • Last 7 Days    : {w_tok:,} ({w_tok/1e6:.2f}M)  |  Cost: ${w_cost:.2f}")
+    print(f"  • Real-Time TPM  : \033[1;36m{tpm:,} tokens/min\033[0m")
+
+    # 2. Inflight Tasks
+    print(f"\n\033[1;33m[INFLIGHT TASKS ({len(tasks)})]\033[0m")
+    if not tasks:
+        print("  (No running tasks - system idle)")
+    else:
+        for idx, t in enumerate(tasks, 1):
+            src = t.get("source", "Task")
+            status = t.get("status", "RUNNING")
+            title = t.get("title", "")
+            pct = t.get("pct", 0)
+            blocks = t.get("blocks", 0)
+            step_txt = t.get("step_text", "")
+            elapsed = t.get("elapsed", "")
+            bar = "■" * blocks + "□" * (12 - blocks)
+
+            if status == "APPROVAL":
+                tag = "\033[41;37m WAITING APPROVAL \033[0m"
+            elif status == "IDLE_RECENT":
+                tag = "\033[37m[IDLE]\033[0m"
+            else:
+                tag = "\033[32m[RUNNING]\033[0m"
+
+            print(f"  {idx}. \033[1m[{src}]\033[0m {title} {tag} - \033[33m{elapsed}\033[0m")
+            print(f"     [{bar}] {pct}% ({step_txt}) - {t.get('detail', '')}")
+
+    # 3. Top Models
+    print(f"\n\033[1;33m[TOP MODELS BREAKDOWN]\033[0m")
+    print(f"  {'Model':<28} {'Tokens':<12} {'Cost':<10} {'Output':<10}")
+    print(f"  {'-'*28} {'-'*12} {'-'*10} {'-'*10}")
+    for m in models[:6]:
+        m_id = m.get("modelId", "")[:26]
+        tok_str = f"{m.get('tokens', 0)/1e6:.2f}M" if m.get("tokens", 0) >= 1e6 else f"{m.get('tokens', 0)/1e3:.1f}K"
+        cost_str = f"${m.get('cost', 0):.3f}"
+        out_str = f"{m.get('outputTokens', 0):,}"
+        print(f"  {m_id:<28} {tok_str:<12} {cost_str:<10} {out_str:<10}")
+
+    print("\n" + "=" * 64 + "\n")
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        prog="kpanel",
+        description="Kindle Real-Time Monitoring Panel CLI Companion"
+    )
+    parser.add_argument(
+        "--url",
+        default=DEFAULT_BASE_URL,
+        help=f"Kindle panel server base URL (default: {DEFAULT_BASE_URL})"
+    )
+
+    subparsers = parser.add_subparsers(dest="subcommand", help="Subcommands")
+
+    # push
+    p_push = subparsers.add_parser("push", help="Push/update task progress to panel")
+    p_push.add_argument("title", help="Task title / identifier")
+    p_push.add_argument("--step", type=int, default=None, help="Current step number")
+    p_push.add_argument("--total", type=int, default=None, help="Total steps")
+    p_push.add_argument("--pct", type=int, default=None, help="Explicit percentage (0-100)")
+    p_push.add_argument("--detail", default="", help="Short description / sub-phase detail")
+    p_push.add_argument("--source", default="Script", help="Source label (e.g. Script, Pipeline, Tool)")
+    p_push.add_argument("--approval", action="store_true", help="Mark task as waiting for user approval (inverts card to solid black)")
+    p_push.add_argument("--ttl", type=int, default=3600, help="Time to live in seconds (default: 3600)")
+
+    # done
+    p_done = subparsers.add_parser("done", help="Mark task as completed / delete from panel")
+    p_done.add_argument("title", help="Task title to complete")
+
+    # status
+    p_status = subparsers.add_parser("status", help="Print formatted terminal dashboard status")
+
+    args = parser.parse_args()
+
+    if args.subcommand == "push":
+        cmd_push(args)
+    elif args.subcommand == "done":
+        cmd_done(args)
+    elif args.subcommand == "status":
+        cmd_status(args)
+    else:
+        parser.print_help()
+
+
+if __name__ == "__main__":
+    main()
