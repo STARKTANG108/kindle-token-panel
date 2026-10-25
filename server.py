@@ -210,6 +210,8 @@ def get_token_monitor_stats():
                 age_sec = now - cap_ts if cap_ts > 0 else 999999
 
                 today_p = entry.get("periods", {}).get("today", {})
+                last_used_ts = parse_iso_ts(today_p.get("lastUsedAt"))
+                activity_age_sec = now - last_used_ts if last_used_ts > 0 else 999999
                 tok = int(today_p.get("totalTokens", 0) or 0)
                 cost = float(today_p.get("costUsd", 0.0) or 0.0)
                 inp = int(today_p.get("inputTokens", 0) or 0)
@@ -234,7 +236,7 @@ def get_token_monitor_stats():
                 # Check for timed rate estimate for TPM fallback
                 timed_dur = float(today_p.get("timedDurationMs", 0) or 0)
                 timed_out = float(today_p.get("timedOutputTokens", 0) or 0)
-                if age_sec < 600 and timed_dur > 1000 and timed_out > 0:
+                if 0 <= activity_age_sec < 600 and timed_dur > 1000 and timed_out > 0:
                     cand_rate = (timed_out / (timed_dur / 1000.0)) * 60.0
                     if cand_rate > latest_timed_rate:
                         latest_timed_rate = cand_rate
@@ -248,8 +250,8 @@ def get_token_monitor_stats():
                     session_models[m_id]["tokens"] += m_tok
                     session_models[m_id]["cost"] += m_cost
 
-                # Channel 2: External client active sessions (<600s)
-                if client and client.lower() != "antigravity" and age_sec < 600:
+                # Channel 2: External sessions used within the past 600 seconds
+                if client and client.lower() != "antigravity" and 0 <= activity_age_sec < 600:
                     project_label = today_p.get("projectLabel") or entry.get("projectLabel") or f"{client} Task"
                     active_external_sessions.append({
                         "id": f"tm_{session_id[:12]}",
@@ -257,7 +259,7 @@ def get_token_monitor_stats():
                         "project": project_label,
                         "tokens": tok,
                         "messages": msgs,
-                        "age_sec": age_sec,
+                        "age_sec": activity_age_sec,
                         "startedAt": today_p.get("startedAt") or captured_at
                     })
 
